@@ -54,6 +54,7 @@ static const BOOL kFixLatterTabsPositions = NO;
 // Tab and content stuff
 @property UIScrollView *tabsView;
 @property UIView *contentView;
+@property UIView *gradientView;
 @property UIPageViewController *pageViewController;
 @property(assign) id <UIScrollViewDelegate> actualDelegate;
 // Tab and content cache
@@ -131,20 +132,17 @@ static const BOOL kFixLatterTabsPositions = NO;
 
 - (void)layoutSubviews
 {
-    CGFloat topLayoutGuide = self.topLayoutGuide.length;
-    
     CGRect frame = self.tabsView.frame;
-    frame.origin.x = 0.0;
-    frame.origin.y = self.tabLocation == ViewPagerTabLocationTop ? topLayoutGuide : CGRectGetHeight(self.view.frame) - self.tabHeight;
-    frame.size.width = CGRectGetWidth(self.view.frame);
+    frame.origin.y = self.tabLocation == ViewPagerTabLocationTop ? 0 : CGRectGetHeight(self.view.frame) - self.tabHeight;
+    frame.size.width = self.tabViewWidth;
     frame.size.height = self.tabHeight;
-    self.tabsView.frame = frame;
     
+    self.tabsView.frame = frame;
+    self.gradientView.frame = CGRectMake(self.tabsView.frame.origin.x, self.tabsView.frame.origin.y, 10, self.tabsView.frame.size.height);
     frame = self.contentView.frame;
     frame.origin.x = 0.0;
-    frame.origin.y = self.tabLocation == ViewPagerTabLocationTop ? topLayoutGuide + CGRectGetHeight(self.tabsView.frame) : topLayoutGuide;
+    frame.origin.y = self.tabLocation == ViewPagerTabLocationTop ? 0 + CGRectGetHeight(self.tabsView.frame) : 0;
     frame.size.width = CGRectGetWidth(self.view.frame);
-    frame.size.height = CGRectGetHeight(self.view.frame) - (topLayoutGuide + CGRectGetHeight(self.tabsView.frame)) - (self.tabBarController.tabBar.hidden ? 0 : CGRectGetHeight(self.tabBarController.tabBar.frame));
     self.contentView.frame = frame;
 }
 
@@ -157,12 +155,12 @@ static const BOOL kFixLatterTabsPositions = NO;
     // Get the desired page's index
     UITapGestureRecognizer *tapGestureRecognizer = (UITapGestureRecognizer *) sender;
     UIView *tabView = tapGestureRecognizer.view;
-    __block NSUInteger index = [self.tabs indexOfObject:tabView];
+    __block NSUInteger page = [self.tabs indexOfObject:tabView];
     
     //if Tap is not selected Tab(new Tab)
-    if (self.activeTabIndex != index) {
+    if (self.activeTabIndex != page) {
         // Select the tab
-        [self selectTabAtIndex:index didSwipe:NO];
+        [self selectTabAtIndex:page didSwipe:NO];
     }
 }
 
@@ -269,7 +267,7 @@ static const BOOL kFixLatterTabsPositions = NO;
         
         [self.pageViewController setViewControllers:@[viewController]
                                           direction:(activeContentIndex < self.activeContentIndex) ? UIPageViewControllerNavigationDirectionReverse : UIPageViewControllerNavigationDirectionForward
-                                           animated:YES
+                                           animated:NO
                                          completion:^(BOOL completed) {
                                              
                                              weakSelf.animatingToTab = NO;
@@ -294,24 +292,34 @@ static const BOOL kFixLatterTabsPositions = NO;
     }
     
     // Clean out of sight contents
-    NSInteger index;
-    index = self.activeContentIndex - 1;
-    if (index >= 0 &&
-        index != activeContentIndex &&
-        index != activeContentIndex - 1) {
-        self.contents[index] = NSNull.null;
+    NSInteger page;
+    page = self.activeContentIndex - 1;
+    if (page >= 0 &&
+        page != activeContentIndex &&
+        page != activeContentIndex - 1) {
+        
+        if (self.contents.count > page) {
+            self.contents[page] = NSNull.null;
+        }
+        
     }
-    index = self.activeContentIndex;
-    if (index != activeContentIndex - 1 &&
-        index != activeContentIndex &&
-        index != activeContentIndex + 1) {
-        self.contents[index] = [NSNull null];
+    page = self.activeContentIndex;
+    if (page != activeContentIndex - 1 &&
+        page != activeContentIndex &&
+        page != activeContentIndex + 1) {
+        
+        if (self.contents.count > page) {
+            self.contents[page] = NSNull.null;
+        }
     }
-    index = self.activeContentIndex + 1;
-    if (index < self.contents.count &&
-        index != activeContentIndex &&
-        index != activeContentIndex + 1) {
-        self.contents[index] = [NSNull null];
+    page = self.activeContentIndex + 1;
+    if (page < self.contents.count &&
+        page != activeContentIndex &&
+        page != activeContentIndex + 1) {
+        
+        if (self.contents.count > page) {
+            self.contents[page] = NSNull.null;
+        }
     }
     
     _activeContentIndex = activeContentIndex;
@@ -331,15 +339,15 @@ static const BOOL kFixLatterTabsPositions = NO;
 }
 
 
-- (void)selectTabAtIndex:(NSUInteger)index
+- (void)selectTabAtIndex:(NSUInteger)page
 {
-    [self selectTabAtIndex:index didSwipe:NO];
+    [self selectTabAtIndex:page didSwipe:NO];
 }
 
 
-- (void)selectTabAtIndex:(NSUInteger)index didSwipe:(BOOL)didSwipe
+- (void)selectTabAtIndex:(NSUInteger)page didSwipe:(BOOL)didSwipe
 {
-    if (index >= self.tabCount) {
+    if (page >= self.tabCount) {
         return;
     }
     
@@ -351,10 +359,10 @@ static const BOOL kFixLatterTabsPositions = NO;
     NSUInteger previousIndex = self.activeTabIndex;
     
     // Set activeTabIndex
-    self.activeTabIndex = index;
+    self.activeTabIndex = page;
     
     // Set activeContentIndex
-    self.activeContentIndex = index;
+    self.activeContentIndex = page;
     
     // Inform delegate about the change
     if ([self.delegate respondsToSelector:@selector(viewPager:didChangeTabToIndex:)]) {
@@ -455,6 +463,7 @@ static const BOOL kFixLatterTabsPositions = NO;
     self.indicatorHeight = kIndicatorHeight;
     self.tabOffset = kTabOffset;
     self.tabWidth = kTabWidth;
+    self.tabViewWidth = SCREEN_WIDTH;
     self.tabHeight = kTabHeight;
     self.padding = 0.0;
     self.dividerHeight = 0.5;
@@ -511,7 +520,7 @@ static const BOOL kFixLatterTabsPositions = NO;
     
     if (!self.tabsView) {
         
-        self.tabsView = [[UIScrollView alloc] initWithFrame:CGRectMake(0.0, 0.0, CGRectGetWidth(self.view.frame), self.tabHeight)];
+        self.tabsView = [[UIScrollView alloc] initWithFrame:CGRectMake((SCREEN_WIDTH - self.tabViewWidth)/2, 0.0, self.tabViewWidth, self.tabHeight)];
         self.tabsView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         self.tabsView.backgroundColor = self.tabsViewBackgroundColor;
         self.tabsView.scrollsToTop = NO;
@@ -519,13 +528,16 @@ static const BOOL kFixLatterTabsPositions = NO;
         self.tabsView.showsVerticalScrollIndicator = NO;
         self.tabsView.bounces = NO;
         self.tabsView.tag = kTabViewTag;
-        
         [self.view insertSubview:self.tabsView atIndex:0];
         
-        self.underlineStroke = [UIView new];
-        self.underlineStrokeAlphaKeeper = [UIView new];
-        [self.tabsView addSubview:self.underlineStrokeAlphaKeeper];
-        [self.tabsView addSubview:self.underlineStroke];
+        [self drawGradient];
+        
+        if (self.shouldUnderlineStroke) {
+            self.underlineStroke = [UIView new];
+            self.underlineStrokeAlphaKeeper = [UIView new];
+            [self.tabsView addSubview:self.underlineStrokeAlphaKeeper];
+            [self.tabsView addSubview:self.underlineStroke];
+        }
         
         if (self.shouldShowDivider) {
             self.divider = [UIView new];
@@ -604,32 +616,34 @@ static const BOOL kFixLatterTabsPositions = NO;
     }
     
     // Select starting tab
-    NSUInteger index = self.startFromSecondTab ? 1 : 0;
-    [self selectTabAtIndex:index didSwipe:YES];
+    NSUInteger page = self.startFromSecondTab ? 1 : 0;
+    [self selectTabAtIndex:page didSwipe:YES];
     
-    CGRect rect = [self tabViewAtIndex:self.activeContentIndex].frame;
-    rect.origin.y = rect.size.height - self.indicatorHeight;
-    rect.size.height = self.indicatorHeight;
-    self.underlineStroke.frame = rect;
-    self.underlineStrokeAlphaKeeper.frame = rect;
-    self.underlineStroke.backgroundColor = self.indicatorColor;
-    self.underlineStrokeAlphaKeeper.backgroundColor = [kTabsViewBackgroundColor colorWithAlphaComponent:1];
+    if (self.shouldUnderlineStroke) {
+        CGRect rect = [self tabViewAtIndex:self.activeContentIndex].frame;
+        rect.origin.y = rect.size.height - self.indicatorHeight;
+        rect.size.height = self.indicatorHeight;
+        self.underlineStroke.frame = rect;
+        self.underlineStrokeAlphaKeeper.frame = rect;
+        self.underlineStroke.backgroundColor = self.indicatorColor;
+        self.underlineStrokeAlphaKeeper.backgroundColor = [kTabsViewBackgroundColor colorWithAlphaComponent:1];
+    }
     
     // Set setup done
     self.defaultSetupDone = YES;
 }
 
 
-- (TabView *)tabViewAtIndex:(NSUInteger)index
+- (TabView *)tabViewAtIndex:(NSUInteger)page
 {
-    if (index >= self.tabCount) {
+    if (page >= self.tabCount) {
         return nil;
     }
     
-    if ([self.tabs[index] isEqual:[NSNull null]]) {
+    if ([self.tabs[page] isEqual:[NSNull null]]) {
         
         // Get view from dataSource
-        UIView *tabViewContent = [self.dataSource viewPager:self viewForTabAtIndex:index];
+        UIView *tabViewContent = [self.dataSource viewPager:self viewForTabAtIndex:page];
         tabViewContent.autoresizingMask = UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth;
         
         // Create TabView and subview the content
@@ -640,28 +654,28 @@ static const BOOL kFixLatterTabsPositions = NO;
         tabViewContent.center = tabView.center;
         
         // Replace the null object with tabView
-        self.tabs[index] = tabView;
+        self.tabs[page] = tabView;
     }
     
-    return self.tabs[index];
+    return self.tabs[page];
 }
 
 
-- (UIViewController *)viewControllerAtIndex:(NSUInteger)index
+- (UIViewController *)viewControllerAtIndex:(NSUInteger)page
 {
-    if (index >= self.tabCount) {
+    if (page >= self.tabCount) {
         return nil;
     }
     
-    if ([self.contents[index] isEqual:[NSNull null]]) {
+    if ([self.contents[page] isEqual:[NSNull null]]) {
         
         UIViewController *viewController;
         
         if ([self.dataSource respondsToSelector:@selector(viewPager:contentViewControllerForTabAtIndex:)]) {
-            viewController = [self.dataSource viewPager:self contentViewControllerForTabAtIndex:index];
+            viewController = [self.dataSource viewPager:self contentViewControllerForTabAtIndex:page];
         } else if ([self.dataSource respondsToSelector:@selector(viewPager:contentViewForTabAtIndex:)]) {
             
-            UIView *view = [self.dataSource viewPager:self contentViewForTabAtIndex:index];
+            UIView *view = [self.dataSource viewPager:self contentViewForTabAtIndex:page];
             
             // Adjust view's bounds to match the pageView's bounds
             UIView *pageView = [self.view viewWithTag:kContentViewTag];
@@ -674,10 +688,10 @@ static const BOOL kFixLatterTabsPositions = NO;
             viewController.view = [[UIView alloc] init];
         }
         
-        self.contents[index] = viewController;
+        self.contents[page] = viewController;
     }
     
-    return self.contents[index];
+    return self.contents[page];
 }
 
 
@@ -692,17 +706,17 @@ static const BOOL kFixLatterTabsPositions = NO;
 
 - (UIViewController *)pageViewController:(UIPageViewController *)pageViewController viewControllerAfterViewController:(UIViewController *)viewController
 {
-    NSUInteger index = [self indexForViewController:viewController];
-    index++;
-    return [self viewControllerAtIndex:index];
+    NSUInteger page = [self indexForViewController:viewController];
+    page++;
+    return [self viewControllerAtIndex:page];
 }
 
 
 - (UIViewController *)pageViewController:(UIPageViewController *)pageViewController viewControllerBeforeViewController:(UIViewController *)viewController
 {
-    NSUInteger index = [self indexForViewController:viewController];
-    index--;
-    return [self viewControllerAtIndex:index];
+    NSUInteger page = [self indexForViewController:viewController];
+    page--;
+    return [self viewControllerAtIndex:page];
 }
 
 
@@ -711,11 +725,16 @@ static const BOOL kFixLatterTabsPositions = NO;
 
 - (void)pageViewController:(UIPageViewController *)pageViewController didFinishAnimating:(BOOL)finished previousViewControllers:(NSArray *)previousViewControllers transitionCompleted:(BOOL)completed
 {
-    UIViewController *viewController = self.pageViewController.viewControllers[0];
+    if (completed && finished)
+    {
+        
+        UIViewController *viewController = self.pageViewController.viewControllers[0];
+        
+        // Select tab
+        NSUInteger page = [self indexForViewController:viewController];
+        [self selectTabAtIndex:page didSwipe:YES];
+    }
     
-    // Select tab
-    NSUInteger index = [self indexForViewController:viewController];
-    [self selectTabAtIndex:index didSwipe:YES];
 }
 
 
@@ -761,11 +780,13 @@ static const BOOL kFixLatterTabsPositions = NO;
     __block CGFloat newX;
     __block CGRect rect = tabView.frame;
     void (^updateIndicator)() = ^void() {
-        rect.origin.x = newX;
-        rect.origin.y = self.underlineStroke.frame.origin.y;
-        rect.size.height = self.underlineStroke.frame.size.height;
-        self.underlineStroke.frame = rect;
-        self.underlineStrokeAlphaKeeper.frame = rect;
+        if (self.shouldUnderlineStroke) {
+            rect.origin.x = newX;
+            rect.origin.y = self.underlineStroke.frame.origin.y;
+            rect.size.height = self.underlineStroke.frame.size.height;
+            self.underlineStroke.frame = rect;
+            self.underlineStrokeAlphaKeeper.frame = rect;
+        }
     };
     
     CGFloat width = CGRectGetWidth(self.view.frame);
@@ -798,11 +819,11 @@ static const BOOL kFixLatterTabsPositions = NO;
     CGFloat newX = NSNotFound;
     CGFloat aFloat = [scrollView.panGestureRecognizer translationInView:scrollView.superview].x;
     if (scrollView.contentOffset.x != 0) {
-        if (aFloat > 0) {
+        if (aFloat > 0 && width) {
             // handle dragging to the right
             CGFloat mov = width - scrollView.contentOffset.x;
             newX = (*rect).origin.x - ((distance * mov) / width);
-        } else if (aFloat < 0) {
+        } else if (aFloat < 0 && width) {
             // handle dragging to the left
             CGFloat mov = scrollView.contentOffset.x - width;
             newX = (*rect).origin.x + ((distance * mov) / width);
@@ -916,6 +937,29 @@ static const BOOL kFixLatterTabsPositions = NO;
         [self.actualDelegate scrollViewDidEndScrollingAnimation:scrollView];
     }
     self.didTapOnTabView = NO;
+}
+
+#pragma mark - Other
+
+- (void)drawGradient {
+    self.gradientView = [[UIView alloc] initWithFrame:CGRectMake(self.tabsView.frame.origin.x, self.tabsView.frame.origin.y, 1, self.tabsView.frame.size.height)];
+    self.gradientView.backgroundColor = [UIColor clearColor];
+    
+    CAGradientLayer *gradientLeft = [CAGradientLayer layer];
+    gradientLeft.frame = CGRectMake(0, 0, self.tabWidth+15, self.tabsView.frame.size.height);
+    gradientLeft.colors = [NSArray arrayWithObjects:(id)[UIColor whiteColor].CGColor, (id)[[UIColor whiteColor] colorWithAlphaComponent:0.0].CGColor, nil];
+    gradientLeft.startPoint = CGPointMake(0, 0.5);
+    gradientLeft.endPoint = CGPointMake(1.0, 0.5);
+    [self.gradientView.layer insertSublayer:gradientLeft atIndex:0];
+    
+    CAGradientLayer *gradientRight = [CAGradientLayer layer];
+    gradientRight.frame = CGRectMake(self.tabsView.frame.size.width - self.tabWidth-10, 0, self.tabWidth+15, self.tabsView.frame.size.height);
+    gradientRight.colors = [NSArray arrayWithObjects:(id)[UIColor whiteColor].CGColor, (id)[[UIColor whiteColor] colorWithAlphaComponent:0.0].CGColor, nil];
+    gradientRight.startPoint = CGPointMake(1.0, 0.5);
+    gradientRight.endPoint = CGPointMake(0, 0.5);
+    [self.gradientView.layer insertSublayer:gradientRight atIndex:0];
+    
+    [self.view insertSubview:self.gradientView atIndex:1];
 }
 
 @end
