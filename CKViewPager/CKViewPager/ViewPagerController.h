@@ -7,7 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "ViewController.h"
+@class ViewController;
 
 typedef NS_ENUM(NSUInteger, ViewPagerTabLocation) {
     ViewPagerTabLocationTop = 0,
